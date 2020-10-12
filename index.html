@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohm Downloader</title>
+    <style>
+        body {
+            background-color: #1a1c2c;
+            color: #94b0c2;
+            font-family: copperplate;
+        }
+
+        textarea {
+            background-color: #333c57;
+            border-color: #566c86;
+            color: #94b0c2;
+        }
+
+        h1 {
+            color: #f4f4f4;
+            text-align: center;
+        }
+
+        .content-wrap {
+            width: 1000px;
+            height: auto;
+            margin-left: auto;
+            margin-right: auto;
+            padding-top: 1em;
+            padding-bottom: 1em;
+            background-color: #29366f;
+            border-radius: 10px;
+        }
+
+        .wrap-normal {
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .wrap-bleed {
+            width: 100%;
+        }
+
+        #json-input {
+            display: block;
+            width: 100%;
+        }
+
+        #info-para {
+            padding-left: 10%;
+            padding-right: 10%;
+            padding-top: 1em;
+            padding-bottom: 1em;
+        }
+
+        #info-para.info {
+            background-color: #566c86;
+            color: #94b0c2;
+        }
+
+        #info-para.success {
+            background-color: #38b764;
+            color: #a7f070;
+        }
+
+        #info-para.error {
+            background-color: #5d275d;
+            color: #b13e53;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="content-wrap">
+        <h1><span style="color: #ffcd75;">Ohm Studio</span> Project Downloader / Assistant</h1>
+        <div class="wrap-normal">
+            <textarea disabled name="" id="json-input" cols="30" rows="10" placeholder="Loading..." value=""></textarea>
+            <input hidden id="submit-btn" type="button" value="Use this JSON">
+            <input hidden id="begin-btn" type="button" value="Begin export process">
+        </div>
+        <div class="wrap-bleed">
+            <p hidden id="info-para"></p>
+        </div>
+    </div>
+    <script>
+        (async () => {
+            const jsonInput = document.getElementById("json-input");
+            const submitBtn = document.getElementById("submit-btn");
+            const infoPara = document.getElementById("info-para");
+            const beginBtn = document.getElementById("begin-btn");
+
+            function showMessage(removeClasses, addClass, message) {
+                if (!!message && message.length > 0) {
+                    infoPara.innerText = message;
+                    infoPara.removeAttribute("hidden");
+                    infoPara.classList.remove(...removeClasses);
+                    infoPara.classList.add(addClass);
+                } else {
+                    infoPara.setAttribute("hidden", "");
+                }
+            }
+
+            const showError = message => showMessage(["success", "info", "warning"], "error", message);
+            const showInfo = message => showMessage(["success", "error", "warning"], "info", message);
+            const showSuccess = message => showMessage(["info", "error", "warning"], "success", message);
+
+            async function downloadJson() {
+                const downloadUrl = "http://www.ohmstudio.com/v3/feed/my_projects?page=0";
+
+                let resp;
+                try {
+                    resp = await fetch(downloadUrl);
+                } catch (e) {
+                    return;
+                }
+
+                if (!resp.ok) {
+                    return;
+                }
+
+                const json = tryParseJson(await resp.text());
+                return json;
+            }
+
+            function tryParseJson(str) {
+                try {
+                    const json = JSON.parse(str);
+                    if (typeof json !== "object") {
+                        return;
+                    }
+
+                    return json;
+                } catch (e) {
+                }
+            }
+
+            async function getJson() {
+                if (jsonInput.value.length > 0) {
+                    submitBtn.removeAttribute("hidden");
+                    const json = tryParseJson(jsonInput.value);
+
+                    showError();
+                    if (!!json) {
+                        return json;
+                    } else {
+                        showError("Invalid JSON, please paste it again.");
+                    }
+                }
+
+                const json = await downloadJson();
+                if (!!json) {
+                    jsonInput.value = JSON.stringify(json);
+                    return json;
+                }
+
+                jsonInput.setAttribute("placeholder", "Failed to download your JSON, please paste it manually...");
+                jsonInput.removeAttribute("disabled");
+                submitBtn.removeAttribute("hidden");
+
+                return new Promise(resolve => {
+                    let listener;
+                    listener = submitBtn.addEventListener("click", () => {
+                        submitBtn.removeEventListener("click", listener);
+                        showError();
+
+                        const json = tryParseJson(jsonInput.value);
+                        if (!!!json) {
+                            showError("Invalid JSON, please paste it again.");
+                            return;
+                        }
+
+                        showInfo("Analyzing...");
+                        const isValid = checkJsonStructure(json);
+
+                        if (!isValid) {
+                            showError("Your JSON is valid, BUT it's schema doesn't match. Make sure you've actually pasted Ohm Studio JSON.");
+                            return;
+                        }
+
+                        if (!!json) {
+                            resolve(json);
+                        }
+                    });
+                });
+            }
+
+            function checkJsonStructure(json) {
+                if (!!!json["result"]) return false;
+                if (json.result.length > 0) {
+                    if (!!!json.result[0]["title"]) return false;
+                    if (!!!json.result[0]["mixdown"]) return false;
+                }
+
+                return true;
+            }
+
+            let json;
+            for (; ;) {
+                json = await getJson();
+                if (!!json) {
+                    break;
+                }
+            }
+
+            submitBtn.setAttribute("hidden", "");
+            showInfo(`${json.result.length} projects total.`);
+
+            beginBtn.removeAttribute("hidden");
+            beginBtn.addEventListener("click", () => {
+                showSuccess("Work in progress :-)");
+            });
+        })();
+    </script>
+</body>
+
+</html>
