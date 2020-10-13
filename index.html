@@ -9,7 +9,7 @@
         body {
             background-color: #1a1c2c;
             color: #94b0c2;
-            font-family: copperplate;
+            font-family: copperplate, "Arial Black";
         }
 
         textarea {
@@ -44,6 +44,12 @@
             width: 100%;
         }
 
+        .info-wrap {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
         #json-input {
             display: block;
             width: 100%;
@@ -70,6 +76,75 @@
             background-color: #5d275d;
             color: #b13e53;
         }
+
+        /* ------------------------------------ */
+        /* Projects */
+
+        #project-list .project {
+            position: relative;
+            background-color: #333c57;
+            color: #94b0c2;
+            padding: .5em;
+            border: 2px solid transparent;
+            box-sizing: border-box;
+            --progress: 0%;
+        }
+
+        #project-list .project:nth-child(2n) {
+            background-color: #1a1c2c;
+            color: #94b0c2;
+        }
+
+        #project-list .project:hover {
+            border: 2px solid #ef7d57;
+        }
+
+        #project-list .project.active {
+            background-color: #b13e53;
+            color: #f4f4f4;
+            --progress: 100%;
+        }
+
+        #project-list .project .checkbox {
+            display: inline-block;
+            margin-right: 1em;
+        }
+
+        #project-list .project .title {
+            display: inline-block;
+            max-width: 50%;
+            white-space: nowrap;
+            overflow: hidden;
+            vertical-align: middle;
+            text-overflow: ellipsis;
+        }
+
+        #project-list .project .waveform {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 40%;
+            height: 100%;
+            background-color: #1a1c2c;
+        }
+
+        #project-list .project .waveform>div {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background-color: #b13e53;
+            width: var(--progress);
+            height: 100%;
+            transition: 3s width;
+        }
+
+        #project-list .project .waveform>img {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
 
@@ -81,8 +156,12 @@
             <input hidden id="submit-btn" type="button" value="Use this JSON">
             <input hidden id="begin-btn" type="button" value="Begin export process">
         </div>
-        <div class="wrap-bleed">
+        <div class="wrap-bleed info-wrap">
             <p hidden id="info-para"></p>
+        </div>
+        <div class="wrap-normal">
+            <div hidden id="project-list">
+            </div>
         </div>
     </div>
     <script>
@@ -91,6 +170,7 @@
             const submitBtn = document.getElementById("submit-btn");
             const infoPara = document.getElementById("info-para");
             const beginBtn = document.getElementById("begin-btn");
+            const projectList = document.getElementById("project-list");
 
             function showMessage(removeClasses, addClass, message) {
                 if (!!message && message.length > 0) {
@@ -108,11 +188,16 @@
             const showSuccess = message => showMessage(["info", "error", "warning"], "success", message);
 
             async function downloadJson() {
+                /* Sadly, due to CORS, this generally isn't going to work.
+                 * But maybe somewhere there's a person with a browser
+                 * that has CORS disabled. For this person, this might work.
+                 * In that case: you rock, dude.
+                */
                 const downloadUrl = "http://www.ohmstudio.com/v3/feed/my_projects?page=0";
 
                 let resp;
                 try {
-                    resp = await fetch(downloadUrl);
+                    resp = await fetch(downloadUrl, { credentials: "include", });
                 } catch (e) {
                     return;
                 }
@@ -197,6 +282,47 @@
                 return true;
             }
 
+            function addProject(prj) {
+                const ele = document.createElement("div");
+                projectList.appendChild(ele);
+                ele.classList.add("project");
+                ele.addEventListener("click", () => {
+                    [...projectList.children].forEach(c => c.classList.remove("active"));
+                    ele.classList.add("active");
+                });
+
+                const checkbox = document.createElement("input");
+                ele.appendChild(checkbox);
+                checkbox.setAttribute("type", "checkbox");
+                checkbox.classList.add("checkbox");
+                checkbox.addEventListener("change", () => {
+                    const totalCount = projectList.children.length;
+                    const selectedCount = projectList.querySelectorAll(".project .checkbox:checked").length;
+                    const projectsWord = `project${selectedCount == 1 ? "" : "s"}`;
+                    showInfo(`${selectedCount} ${projectsWord} selected, ${totalCount} total.`);
+                });
+
+                const title = document.createElement("div");
+                ele.appendChild(title);
+                title.classList.add("title");
+                title.innerText = prj.title;
+                title.setAttribute("title", prj.title);
+
+                const waveform = document.createElement("div");
+                ele.appendChild(waveform);
+                waveform.classList.add("waveform");
+
+                const waveformProgress = document.createElement("div");
+                waveform.appendChild(waveformProgress);
+
+                const waveformImg = document.createElement("img");
+                waveform.appendChild(waveformImg);
+                waveformImg.setAttribute("loading", "lazy"); // TODO: Not very cross-platform.
+                if (!!prj.mixdown && prj.mixdown.length > 0) {
+                    waveformImg.setAttribute("src", prj.mixdown[0].url_png);
+                }
+            }
+
             let json;
             for (; ;) {
                 json = await getJson();
@@ -212,6 +338,9 @@
             beginBtn.addEventListener("click", () => {
                 showSuccess("Work in progress :-)");
             });
+
+            projectList.removeAttribute("hidden");
+            json.result.forEach(addProject);
         })();
     </script>
 </body>
