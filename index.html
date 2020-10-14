@@ -393,6 +393,9 @@
                         const progress = (playback.audio.currentTime / playback.audio.duration) * 100.0;
                         ele.style.setProperty("--progress", progress + "%");
                     });
+                    playback.audio.addEventListener("ended", () => {
+                        ele.classList.remove("playing");
+                    });
 
                     playback.wavImg = ele.querySelector(".waveform > img");
                     playback.wavImgClick = e => {
