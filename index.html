@@ -99,10 +99,14 @@
             border: 2px solid #ef7d57;
         }
 
-        #project-list .project.active {
+        #project-list .project.playing {
             background-color: #b13e53;
             color: #f4f4f4;
-            --progress: 100%;
+            /* --progress: 100%; */
+        }
+
+        #project-list .project.no-mixdown {
+            border: 2px dashed #ef7d57;
         }
 
         #project-list .project .checkbox {
@@ -135,7 +139,6 @@
             background-color: #b13e53;
             width: var(--progress);
             height: 100%;
-            transition: 3s width;
         }
 
         #project-list .project .waveform>img {
@@ -145,7 +148,86 @@
             width: 100%;
             height: 100%;
         }
+
+        #project-list .project .details {
+            height: 0;
+            max-width: calc(60% - .5em);
+            overflow: hidden;
+            transition: .5s height;
+        }
+
+        #project-list .project.selected {
+            color: #f4f4f4;
+        }
+
+        #project-list .project.selected .details {
+            height: 10em;
+        }
+
+        #project-list .project .details .details-inner {
+            margin-top: .8em;
+        }
+
+        #project-list .project .details .description {
+            font-size: .8em;
+            padding: .5em;
+        }
+
+        #project-list .project .details .controls {
+            font-family: "Material Icons";
+        }
+
+        #project-list .project .details .controls .control {
+            display: inline-block;
+            width: 2em;
+            height: 2em;
+            margin-left: .5em;
+            border-radius: 5px;
+            position: relative;
+        }
+
+        #project-list .project .details .controls .control:first-child {
+            margin-left: 0;
+        }
+
+        #project-list .project .details .controls .control::before {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2em;
+            transition: 1s transform;
+        }
+
+        #project-list .project .details .controls .control:hover::before {
+            transform: translate(-50%, -50%) rotateZ(360deg);
+        }
+
+        #project-list .project .details .controls .play-pause {
+            background-color: #41a6f6;
+        }
+
+        #project-list .project .details .controls .play-pause::before {
+            content: "\e037";
+        }
+
+        #project-list .project.playing .details .controls .play-pause {
+            background-color: #ef7d57;
+        }
+
+        #project-list .project.playing .details .controls .play-pause::before {
+            content: "\e034";
+        }
+
+        #project-list .details .controls .stop {
+            background-color: #41a6f6;
+        }
+
+        #project-list .project .details .controls .stop::before {
+            content: "\e047";
+        }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet">
 </head>
 
 <body>
@@ -171,6 +253,14 @@
             const infoPara = document.getElementById("info-para");
             const beginBtn = document.getElementById("begin-btn");
             const projectList = document.getElementById("project-list");
+
+            let playback = {
+                audio: undefined,
+                prj: undefined,
+                ele: undefined,
+                wavImg: undefined,
+                wavImgClick: undefined,
+            };
 
             function showMessage(removeClasses, addClass, message) {
                 if (!!message && message.length > 0) {
@@ -282,17 +372,89 @@
                 return true;
             }
 
+            function resumePlayback(prj, ele) {
+                if (!!!prj.mixdown.length || prj.mixdown.length == 0) {
+                    return;
+                }
+
+                if (!!playback.audio && prj.mixdown[0].url_m4a !== playback.prj.mixdown[0].url_m4a) {
+                    stopPlayback();
+                }
+
+                if (!!!playback.audio) {
+                    playback.audio = new Audio(prj.mixdown[0].url_m4a);
+                    playback.prj = prj;
+                    playback.ele = ele;
+                    playback.audio.addEventListener("timeupdate", evt => {
+                        if (!!!playback.audio) {
+                            return;
+                        }
+
+                        const progress = (playback.audio.currentTime / playback.audio.duration) * 100.0;
+                        ele.style.setProperty("--progress", progress + "%");
+                    });
+
+                    playback.wavImg = ele.querySelector(".waveform > img");
+                    playback.wavImgClick = e => {
+                        // Don't trigger when the project isn't selected.
+                        if (!playback.ele.classList.contains("selected")) {
+                            return;
+                        }
+
+                        const progress = e.layerX / playback.wavImg.clientWidth;
+                        playback.audio.currentTime = playback.audio.duration * progress;
+                    };
+                    playback.wavImg.addEventListener("click", playback.wavImgClick);
+                }
+
+                console.log("Play", prj.mixdown[0].url_m4a);
+                playback.audio.play();
+            }
+
+            function pausePlayback() {
+                if (!!!playback.audio) {
+                    return;
+                }
+
+                console.log("Pause");
+                playback.audio.pause();
+            }
+
+            function stopPlayback() {
+                if (!!!playback.audio) {
+                    return;
+                }
+
+                console.log("Stop");
+
+                playback.ele.style.removeProperty("--progress");
+                playback.wavImg.removeEventListener("click", playback.wavImgClick);
+
+                playback.audio.pause();
+                playback = {};
+            }
+
             function addProject(prj) {
                 const ele = document.createElement("div");
                 projectList.appendChild(ele);
+
                 ele.classList.add("project");
                 ele.addEventListener("click", () => {
-                    [...projectList.children].forEach(c => c.classList.remove("active"));
-                    ele.classList.add("active");
+                    [...projectList.children].forEach(p => p.classList.remove("selected"));
+                    ele.classList.add("selected");
                 });
 
+                const noMixdown = !!!prj.mixdown.length || prj.mixdown.length == 0;
+                if (noMixdown) {
+                    ele.classList.add("no-mixdown");
+                }
+
+                const overview = document.createElement("div");
+                ele.appendChild(overview);
+                overview.classList.add("overview");
+
                 const checkbox = document.createElement("input");
-                ele.appendChild(checkbox);
+                overview.appendChild(checkbox);
                 checkbox.setAttribute("type", "checkbox");
                 checkbox.classList.add("checkbox");
                 checkbox.addEventListener("change", () => {
@@ -301,15 +463,18 @@
                     const projectsWord = `project${selectedCount == 1 ? "" : "s"}`;
                     showInfo(`${selectedCount} ${projectsWord} selected, ${totalCount} total.`);
                 });
+                if (noMixdown) {
+                    checkbox.setAttribute("disabled", "");
+                }
 
                 const title = document.createElement("div");
-                ele.appendChild(title);
+                overview.appendChild(title);
                 title.classList.add("title");
                 title.innerText = prj.title;
                 title.setAttribute("title", prj.title);
 
                 const waveform = document.createElement("div");
-                ele.appendChild(waveform);
+                overview.appendChild(waveform);
                 waveform.classList.add("waveform");
 
                 const waveformProgress = document.createElement("div");
@@ -320,6 +485,48 @@
                 waveformImg.setAttribute("loading", "lazy"); // TODO: Not very cross-platform.
                 if (!!prj.mixdown && prj.mixdown.length > 0) {
                     waveformImg.setAttribute("src", prj.mixdown[0].url_png);
+                }
+
+                const details = document.createElement("div");
+                ele.appendChild(details);
+                details.classList.add("details");
+
+                const detailsInner = document.createElement("div");
+                details.appendChild(detailsInner);
+                detailsInner.classList.add("details-inner");
+
+                const description = document.createElement("div");
+                detailsInner.appendChild(description);
+                description.classList.add("description");
+                description.innerText = prj.short_desc || "";
+
+                if (!noMixdown) {
+                    const controls = document.createElement("div");
+                    detailsInner.appendChild(controls);
+                    controls.classList.add("controls");
+
+                    const playPause = document.createElement("div");
+                    controls.appendChild(playPause);
+                    playPause.classList.add("control", "play-pause");
+                    playPause.addEventListener("click", () => {
+                        const wasPlaying = ele.classList.contains("playing");
+                        [...projectList.children].forEach(p => p.classList.remove("playing"));
+
+                        if (wasPlaying) {
+                            pausePlayback(prj, ele);
+                        } else {
+                            ele.classList.add("playing");
+                            resumePlayback(prj, ele);
+                        }
+                    });
+
+                    const stop = document.createElement("div");
+                    controls.appendChild(stop);
+                    stop.classList.add("control", "stop");
+                    stop.addEventListener("click", () => {
+                        [...projectList.children].forEach(p => p.classList.remove("playing"));
+                        stopPlayback();
+                    });
                 }
             }
 
