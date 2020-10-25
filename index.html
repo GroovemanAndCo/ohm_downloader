@@ -200,7 +200,6 @@
             position: relative;
             color: #f4f4f4;
             cursor: pointer;
-            font-family: "Material Icons";
         }
 
         #project-list .project .details .controls .control:first-child {
@@ -214,6 +213,15 @@
             transform: translate(-50%, -50%);
             font-size: 2em;
             transition: 1s transform;
+            font-family: "Material Icons";
+        }
+
+        #project-list .project .details .controls .control::after {
+            position: absolute;
+            bottom: -1em;
+            font-size: .8em;
+            width: 100%;
+            text-align: center;
         }
 
         #project-list .project .details .controls .control:hover::before {
@@ -250,6 +258,22 @@
 
         #project-list .project .details .controls .download-m4a::before {
             content: "\e2c0";
+        }
+
+        #project-list .project .details .controls .download-m4a::after {
+            content: "m4a";
+        }
+
+        #project-list .project .details .controls .download-ogg {
+            background-color: #41a6f6;
+        }
+
+        #project-list .project .details .controls .download-ogg::before {
+            content: "\e2c0";
+        }
+
+        #project-list .project .details .controls .download-ogg::after {
+            content: "ogg";
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet">
@@ -570,6 +594,13 @@
                     downloadM4a.href = prj.mixdown[0].url_m4a;
                     downloadM4a.target = "_blank";
                     downloadM4a.download = prj.title + ".m4a";
+
+                    const downloadOgg = document.createElement("a");
+                    actionsGroup.appendChild(downloadOgg);
+                    downloadOgg.classList.add("control", "download-ogg");
+                    downloadOgg.href = prj.mixdown[0].url_ogg;
+                    downloadOgg.target = "_blank";
+                    downloadOgg.download = prj.title + ".ogg";
                 }
             }
 
