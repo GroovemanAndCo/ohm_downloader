@@ -87,12 +87,21 @@
             padding: .5em;
             border: 2px solid transparent;
             box-sizing: border-box;
+            overflow: hidden;
             --progress: 0%;
         }
 
         #project-list .project:nth-child(2n) {
             background-color: #1a1c2c;
             color: #94b0c2;
+        }
+
+        #project-list .project:first-child {
+            border-radius: 10px 10px 0 0;
+        }
+
+        #project-list .project:last-child {
+            border-radius: 0 0 10px 10px;
         }
 
         #project-list .project:hover {
