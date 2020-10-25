@@ -182,8 +182,13 @@
             padding: .5em;
         }
 
-        #project-list .project .details .controls {
-            font-family: "Material Icons";
+        #project-list .project .details .controls .group {
+            display: inline-block;
+            margin-left: 2.5em;
+        }
+
+        #project-list .project .details .controls .group:first-child {
+            margin-left: 0;
         }
 
         #project-list .project .details .controls .control {
@@ -193,6 +198,9 @@
             margin-left: .5em;
             border-radius: 5px;
             position: relative;
+            color: #f4f4f4;
+            cursor: pointer;
+            font-family: "Material Icons";
         }
 
         #project-list .project .details .controls .control:first-child {
@@ -234,6 +242,14 @@
 
         #project-list .project .details .controls .stop::before {
             content: "\e047";
+        }
+
+        #project-list .project .details .controls .download-m4a {
+            background-color: #41a6f6;
+        }
+
+        #project-list .project .details .controls .download-m4a::before {
+            content: "\e2c0";
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet">
@@ -517,8 +533,12 @@
                     detailsInner.appendChild(controls);
                     controls.classList.add("controls");
 
+                    const playbackGroup = document.createElement("div");
+                    controls.appendChild(playbackGroup);
+                    playbackGroup.classList.add("group");
+
                     const playPause = document.createElement("div");
-                    controls.appendChild(playPause);
+                    playbackGroup.appendChild(playPause);
                     playPause.classList.add("control", "play-pause");
                     playPause.addEventListener("click", () => {
                         const wasPlaying = ele.classList.contains("playing");
@@ -533,12 +553,23 @@
                     });
 
                     const stop = document.createElement("div");
-                    controls.appendChild(stop);
+                    playbackGroup.appendChild(stop);
                     stop.classList.add("control", "stop");
                     stop.addEventListener("click", () => {
                         [...projectList.children].forEach(p => p.classList.remove("playing"));
                         stopPlayback();
                     });
+
+                    const actionsGroup = document.createElement("div");
+                    controls.appendChild(actionsGroup);
+                    actionsGroup.classList.add("group");
+
+                    const downloadM4a = document.createElement("a");
+                    actionsGroup.appendChild(downloadM4a);
+                    downloadM4a.classList.add("control", "download-m4a");
+                    downloadM4a.href = prj.mixdown[0].url_m4a;
+                    downloadM4a.target = "_blank";
+                    downloadM4a.download = prj.title + ".m4a";
                 }
             }
 
@@ -555,7 +586,7 @@
 
             beginBtn.removeAttribute("hidden");
             beginBtn.addEventListener("click", () => {
-                showSuccess("Work in progress :-)");
+                showSuccess("This is a work in progress :-)");
             });
 
             projectList.removeAttribute("hidden");
