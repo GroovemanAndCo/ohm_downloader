@@ -283,8 +283,9 @@
     <div class="content-wrap">
         <h1><span style="color: #ffcd75;">Ohm Studio</span> Project Downloader / Assistant</h1>
         <div class="wrap-normal">
-            <textarea disabled name="" id="json-input" cols="30" rows="10" placeholder="Loading..." value=""></textarea>
+            <input id="open-btn" type="file" accept="application/json">
             <input hidden id="submit-btn" type="button" value="Use this JSON">
+            <br>
             <input hidden id="begin-btn" type="button" value="Begin export process">
         </div>
         <div class="wrap-bleed info-wrap">
@@ -297,7 +298,7 @@
     </div>
     <script>
         (async () => {
-            const jsonInput = document.getElementById("json-input");
+            const openBtn = document.getElementById("open-btn");
             const submitBtn = document.getElementById("submit-btn");
             const infoPara = document.getElementById("info-para");
             const beginBtn = document.getElementById("begin-btn");
@@ -326,27 +327,53 @@
             const showInfo = message => showMessage(["success", "error", "warning"], "info", message);
             const showSuccess = message => showMessage(["info", "error", "warning"], "success", message);
 
-            async function downloadJson() {
-                /* Sadly, due to CORS, this generally isn't going to work.
-                 * But maybe somewhere there's a person with a browser
-                 * that has CORS disabled. For this person, this might work.
-                 * In that case: you rock, dude.
-                */
-                const downloadUrl = "http://www.ohmstudio.com/v3/feed/my_projects?page=0";
+            function jsonFileSelected() {
+                return new Promise(realResolve => {
+                    const listeners = [];
+                    const addListener = (ele, evt, handler) => {
+                        const listener = ele.addEventListener(evt, handler);
+                        listeners.push({ ele, evt, listener });
+                    };
+                    const resolve = file => {
+                        listeners.forEach(l => l.ele.removeEventListener(l.evt, l.listener));
+                        realResolve(file);
+                    };
 
-                let resp;
-                try {
-                    resp = await fetch(downloadUrl, { credentials: "include", });
-                } catch (e) {
-                    return;
-                }
+                    // Open button
+                    addListener(openBtn, "change", evt => {
+                        if (openBtn.files.length == 0) {
+                            return;
+                        }
 
-                if (!resp.ok) {
-                    return;
-                }
+                        resolve(openBtn.files[0]);
+                    });
 
-                const json = tryParseJson(await resp.text());
-                return json;
+                    // Drag and drop
+                    addListener(document, "dragover", evt => {
+                        evt.stopPropagation();
+                        evt.preventDefault();
+                        evt.dataTransfer.dropEffect = "copy";
+                    });
+
+                    addListener(document, "drop", evt => {
+                        evt.stopPropagation();
+                        evt.preventDefault();
+
+                        if (evt.dataTransfer.files.length == 0) {
+                            return;
+                        }
+
+                        resolve(evt.dataTransfer.files[0]);
+                    });
+                });
+            }
+
+            function fileRead(file) {
+                return new Promise(resolve => {
+                    const r = new FileReader();
+                    r.addEventListener("load", evt => resolve(evt.target.result));
+                    r.readAsText(file);
+                });
             }
 
             function tryParseJson(str) {
@@ -362,53 +389,28 @@
             }
 
             async function getJson() {
-                if (jsonInput.value.length > 0) {
-                    submitBtn.removeAttribute("hidden");
-                    const json = tryParseJson(jsonInput.value);
+                while (true) {
+                    const file = await jsonFileSelected();
+                    const jsonString = await fileRead(file);
 
                     showError();
-                    if (!!json) {
-                        return json;
-                    } else {
-                        showError("Invalid JSON, please paste it again.");
-                    }
-                }
 
-                const json = await downloadJson();
-                if (!!json) {
-                    jsonInput.value = JSON.stringify(json);
+                    const json = tryParseJson(jsonString);
+                    if (!!!json) {
+                        showError("Invalid JSON, please open a JSON file (.json)!");
+                        continue;
+                    }
+
+                    showInfo("Analyzing...");
+                    const isValid = checkJsonStructure(json);
+
+                    if (!isValid) {
+                        showError("Your JSON is valid, BUT it's schema doesn't match. Make sure you've actually opened Ohm Studio JSON!");
+                        continue;
+                    }
+
                     return json;
                 }
-
-                jsonInput.setAttribute("placeholder", "Failed to download your JSON, please paste it manually...");
-                jsonInput.removeAttribute("disabled");
-                submitBtn.removeAttribute("hidden");
-
-                return new Promise(resolve => {
-                    let listener;
-                    listener = submitBtn.addEventListener("click", () => {
-                        submitBtn.removeEventListener("click", listener);
-                        showError();
-
-                        const json = tryParseJson(jsonInput.value);
-                        if (!!!json) {
-                            showError("Invalid JSON, please paste it again.");
-                            return;
-                        }
-
-                        showInfo("Analyzing...");
-                        const isValid = checkJsonStructure(json);
-
-                        if (!isValid) {
-                            showError("Your JSON is valid, BUT it's schema doesn't match. Make sure you've actually pasted Ohm Studio JSON.");
-                            return;
-                        }
-
-                        if (!!json) {
-                            resolve(json);
-                        }
-                    });
-                });
             }
 
             function checkJsonStructure(json) {
@@ -604,24 +606,27 @@
                 }
             }
 
-            let json;
-            for (; ;) {
-                json = await getJson();
-                if (!!json) {
-                    break;
-                }
+            function removeAllProjects() {
+                projectList.innerHTML = "";
             }
 
-            submitBtn.setAttribute("hidden", "");
-            showInfo(`${json.result.length} projects total.`);
+            showSuccess("Open your JSON with the button above, or drag-and-drop it onto this page!");
 
-            beginBtn.removeAttribute("hidden");
-            beginBtn.addEventListener("click", () => {
-                showSuccess("This is a work in progress :-)");
-            });
+            while (true) {
+                const json = await getJson();
 
-            projectList.removeAttribute("hidden");
-            json.result.forEach(addProject);
+                submitBtn.setAttribute("hidden", "");
+                showInfo(`${json.result.length} projects total.`);
+
+                beginBtn.removeAttribute("hidden");
+                beginBtn.addEventListener("click", () => {
+                    showError("This is a work in progress :-)");
+                });
+
+                projectList.removeAttribute("hidden");
+                removeAllProjects();
+                json.result.forEach(addProject);
+            }
         })();
     </script>
 </body>
