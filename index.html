@@ -24,7 +24,7 @@
         }
 
         .content-wrap {
-            width: 1000px;
+            width: calc(min(1000px, 100%));
             height: auto;
             margin-left: auto;
             margin-right: auto;
@@ -162,19 +162,18 @@
             height: 0;
             max-width: calc(60% - .5em);
             overflow: hidden;
-            transition: .5s height;
         }
 
         #project-list .project.selected {
             color: #f4f4f4;
         }
 
-        #project-list .project.selected .details {
+        /* #project-list .project.selected .details {
             height: 10em;
-        }
+        } */
 
         #project-list .project .details .details-inner {
-            margin-top: .8em;
+            padding-top: .8em;
         }
 
         #project-list .project .details .description {
@@ -184,11 +183,12 @@
 
         #project-list .project .details .controls .group {
             display: inline-block;
-            margin-left: 2.5em;
+            margin-right: 2.5em;
+            margin-bottom: .5em;
         }
 
-        #project-list .project .details .controls .group:first-child {
-            margin-left: 0;
+        #project-list .project .details .controls .group:last-child {
+            margin-right: 0;
         }
 
         #project-list .project .details .controls .control {
@@ -281,7 +281,7 @@
 
 <body>
     <div class="content-wrap">
-        <h1><span style="color: #ffcd75;">Ohm Studio</span> Project Downloader / Assistant</h1>
+        <h1><span style="color: #ffcd75;">Ohm&nbsp;Studio</span> Project Downloader</h1>
         <div class="wrap-normal">
             <input id="open-btn" type="file" accept="application/json">
             <input hidden id="submit-btn" type="button" value="Use this JSON">
@@ -393,7 +393,7 @@
                     const file = await jsonFileSelected();
                     const jsonString = await fileRead(file);
 
-                    showError();
+                    showInfo("Parsing...");
 
                     const json = tryParseJson(jsonString);
                     if (!!!json) {
@@ -402,6 +402,7 @@
                     }
 
                     showInfo("Analyzing...");
+
                     const isValid = checkJsonStructure(json);
 
                     if (!isValid) {
@@ -488,14 +489,76 @@
                 playback = {};
             }
 
+            function projectDetailAnim(pro, timeFunc) {
+                return new Promise(resolve => {
+                    const outer = pro.querySelector(".details");
+                    const inner = outer.querySelector(".details-inner");
+                    const targetHeight = inner.clientHeight;
+
+                    const duration = 500;
+                    var startTime = undefined;
+
+                    const tick = time => {
+                        startTime = startTime || time;
+                        const elapsed = time - startTime;
+
+                        // Time (progress) [0, 1].
+                        var t = Math.max(Math.min(elapsed / duration, 1.0), 0.0);
+
+                        // Time adjusted (for animation direction).
+                        t = timeFunc(t);
+
+                        // Time smoothed (cubic bezier, https://easings.net/de#easeInOutCubic).
+                        t = t < 0.5
+                            ? 4 * t * t * t
+                            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+                        const height = Math.max(Math.min(t * targetHeight, targetHeight), 0.0);
+                        outer.style.height = `${height}px`;
+
+                        if (elapsed < duration) {
+                            requestAnimationFrame(tick);
+                        } else {
+                            resolve();
+                        }
+                    };
+                    requestAnimationFrame(tick);
+                });
+            }
+
+            function projectShowDetails(pro) {
+                projectDetailAnim(pro, t => t);
+            }
+
+            function projectHideDetails(pro) {
+                projectDetailAnim(pro, t => 1.0 - t).then(() => {
+                    const outer = pro.querySelector(".details");
+                    outer.style.removeProperty("height");
+                });
+            }
+
             function addProject(prj) {
                 const ele = document.createElement("div");
                 projectList.appendChild(ele);
 
                 ele.classList.add("project");
                 ele.addEventListener("click", () => {
-                    [...projectList.children].forEach(p => p.classList.remove("selected"));
+                    // If this project is already selected, we don't have to do anything.
+                    const isAlreadySelected = ele.classList.contains("selected");
+                    if (isAlreadySelected) {
+                        return;
+                    }
+
+                    // Hide the previously selected project.
+                    const selectedProject = projectList.querySelector(".selected");
+                    if (!!selectedProject) {
+                        selectedProject.classList.remove("selected");
+                        projectHideDetails(selectedProject);
+                    }
+
+                    // Show the current project.
                     ele.classList.add("selected");
+                    projectShowDetails(ele);
                 });
 
                 const noMixdown = !!!prj.mixdown.length || prj.mixdown.length == 0;
@@ -513,9 +576,9 @@
                 checkbox.classList.add("checkbox");
                 checkbox.addEventListener("change", () => {
                     const totalCount = projectList.children.length;
-                    const selectedCount = projectList.querySelectorAll(".project .checkbox:checked").length;
-                    const projectsWord = `project${selectedCount == 1 ? "" : "s"}`;
-                    showInfo(`${selectedCount} ${projectsWord} selected, ${totalCount} total.`);
+                    const checkedCount = projectList.querySelectorAll(".project .checkbox:checked").length;
+                    const projectsWord = `project${checkedCount == 1 ? "" : "s"}`;
+                    showInfo(`${checkedCount} ${projectsWord} selected, ${totalCount} total.`);
                 });
                 if (noMixdown) {
                     checkbox.setAttribute("disabled", "");
