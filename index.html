@@ -493,7 +493,6 @@
                 return new Promise(resolve => {
                     const outer = pro.querySelector(".details");
                     const inner = outer.querySelector(".details-inner");
-                    const targetHeight = inner.clientHeight;
 
                     const duration = 500;
                     let startTime = undefined;
@@ -513,6 +512,7 @@
                             ? 4 * t * t * t
                             : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
+                        const targetHeight = inner.clientHeight;
                         const height = Math.max(Math.min(t * targetHeight, targetHeight), 0.0);
                         outer.style.height = `${height}px`;
 
@@ -672,6 +672,17 @@
             function removeAllProjects() {
                 projectList.innerHTML = "";
             }
+
+            window.addEventListener("resize", () => {
+                const selectedProject = projectList.querySelector(".project.selected");
+
+                if (!!selectedProject) {
+                    const outer = selectedProject.querySelector(".details");
+                    const inner = outer.querySelector(".details-inner");
+                    outer.style.height = `${inner.clientHeight}px`;
+                }
+
+            });
 
             showSuccess("Open your JSON with the button above, or drag-and-drop it onto this page!");
 
