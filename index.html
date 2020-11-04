@@ -496,14 +496,14 @@
                     const targetHeight = inner.clientHeight;
 
                     const duration = 500;
-                    var startTime = undefined;
+                    let startTime = undefined;
 
                     const tick = time => {
                         startTime = startTime || time;
                         const elapsed = time - startTime;
 
                         // Time (progress) [0, 1].
-                        var t = Math.max(Math.min(elapsed / duration, 1.0), 0.0);
+                        let t = Math.max(Math.min(elapsed / duration, 1.0), 0.0);
 
                         // Time adjusted (for animation direction).
                         t = timeFunc(t);
